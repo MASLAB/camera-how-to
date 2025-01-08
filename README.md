@@ -32,7 +32,7 @@ To install `v4l2_camera`, install the `ros-jazzy-v4l2-camera` package with:
 sudo apt install ros-jazzy-v4l2-camera
 ```
 
-To get images more quickly, we will also need `image-transport` to enable compression. Install it with:
+To get images more quickly, we will also need `image-transport-plugins` to enable compression. Install it with:
 
 ```shell
 sudo apt install ros-jazzy-image-transport-plugins
@@ -60,7 +60,7 @@ For more parameters, see: https://docs.ros.org/en/jazzy/p/v4l2_camera/index.html
 > ```
 
 > [!IMPORTANT]
-> If your camera seems to run very slowly, it is likely due to automatic light balance. Disable it with `white_balance_automatic:=False`
+> If your camera seems to run very slowly, it is likely due to automatic light balance. Disable it with `white_balance_automatic:=False`.
 
 If `v4l2_camera_node` runs successfully, you will see something like this:
 
@@ -140,6 +140,9 @@ Add the node to `setup.py`
 
 ## Cube detection test
 Now that we have the image published and processed, run both `v4l2_camera_node` and `cube_detect_node`. Check `rqt` image view for the debugging image.
+
+> [!TIP]
+> The camera may automatically change brightness. This is okay for Zoom calls, but it may mess up our HSV image segmentation. Disable it by setting `auto_exposure` to `1` (manual exposure).
 
 ## Launch files
 We can also make a launch file like [FizzBuzz launch](https://github.com/MASLAB/ROS2_FizzBuzz?tab=readme-ov-file#making-a-launch-file).
