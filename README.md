@@ -162,6 +162,10 @@ We can also make a launch file like [FizzBuzz launch](https://github.com/MASLAB/
 Stop all currently running nodes then build and run the launch file. Open `rqt` and check that we still have cube detection.
 
 ## Set up on Raspberry Pi 5 (NEED ETHERNET)
+
+> [!IMPORTANT]
+> Due to a bug in the Pi's setup script, images from the Pi may not be sent to your computer. Check how to fix on [Kitbot how to](https://github.com/MASLAB/kitbot-how-to?tab=readme-ov-file#fix-a-setup-bug) or come by staff desk during lab hours.
+
 To test it out on the Pi, connect to it via Ethernet. Once connected:
 
 ### Simple test
