@@ -35,7 +35,7 @@ sudo apt install ros-jazzy-v4l2-camera
 To get images more quickly, we will also need `image-transport` to enable compression. Install it with:
 
 ```shell
-sudo apt install ros-jazzy-image-transport
+sudo apt install ros-jazzy-image-transport-plugins
 ```
 
 ### Start publishing image
