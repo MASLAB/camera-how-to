@@ -196,7 +196,7 @@ To test it out on the Pi, connect to it via Ethernet. Once connected:
 #### Return to personal computer
 1. Run `rqt` and check for the processed image, now from the Pi.
 
-# Advance camera usage
+# Advanced camera usage
 Cube detect is cool, but it only draw boxes around cubes for now. We can do more with the camera! Read on for more advanced camera usage.
 
 ## Camera calibration
