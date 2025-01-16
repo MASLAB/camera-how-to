@@ -126,7 +126,7 @@ For this node, do the following:
     1. Make a publisher `cube_image_pub` that publishes to `cube_image/compressed` topic with `CompressedImage` type
 1. In `image_callback`:
     1. Convert the message to a CV2 image frame with `frame = self.bridge.compressed_imgmsg_to_cv2(msg, "bgr8")`. (the `bgr8` argument converts the image to BGR format to be used later)
-    1. Apply the same image processing technique as in https://github.com/MASLAB/cv-samples/blob/master/color_segmentation.py to find the contours of a green cube. You may want to tune your HSV thresholds for best results
+    1. Apply the same image processing technique as in https://github.com/MASLAB/opencv-example/blob/master/object_detection.py to find the contours of a green cube. You may want to tune your HSV thresholds for best results
     1. Instead of showing the image with `cv2.imshow`, publish the debugging image with
         ```Python
         cube_image_msg = self.bridge.cv2_to_compressed_imgmsg(frame)
@@ -195,3 +195,251 @@ To test it out on the Pi, connect to it via Ethernet. Once connected:
 
 #### Return to personal computer
 1. Run `rqt` and check for the processed image, now from the Pi.
+
+# Advance camera usage
+Cube detect is cool, but it only draw boxes around cubes for now. We can do more with the camera! Read on for more advanced camera usage.
+
+## Camera calibration
+To use the camera to its full potential, we need to properly calibrate the camera. 
+
+### Getting calibration file
+> [!TIP]
+> We have already performed calibration on the kit's camera (Logitech Brio 101) using the default resolution of 640x480. You can download the calibration file here: [brio_101.yaml](file/brio_101.yaml)
+
+If you want to use other parameters / other camera / know how to do calibration, follow this guide to get the calibration file. The full camera calibration guide can be found at: https://docs.ros.org/en/ros2_packages/jazzy/api/camera_calibration/doc/tutorial_mono.html
+
+> [!IMPORTANT]
+> Camera calibration should be done on your computer since it uses a GUI to help with calibration. The calibration file can be copied over to the Pi afterward.
+
+#### Install camera calibration package
+To calibrate the camera, we will use `camera_calibration` package. Install `ros-jazzy-camera-calibration` using `sudo apt install ...` like before.
+
+#### Calibration pattern
+We will also need a calibration pattern of checkered squares. We have one at staff desk with 2 cm x 2 cm squares. You can also print them out using this file: [calibration.pdf](file/calibration.pdf). Make sure to apply no scaling to get the correct square size. Once you have a pattern, make sure to tape it down on a surface as flat as possible.
+
+#### Running calibration
+To run the calibration procedure, run `v4l2_camera_node` in a terminal with all the parameters you intended to use for the robot (no white balance, manual brightness, etc.). 
+
+In another terminal, run the calibration node with:
+```shell
+ros2 run camera_calibration cameracalibrator --size 11x8 --square 0.02 --no-service-check --ros-args --remap image:=/image_raw
+```
+
+After running the calibrator, a calibration window will pop up. Move, tilt, and rotate the calibration pattern around until `X`, `Y`, `Size`, and `Skew` parameters are all green 🟩.
+
+<p align="center">
+<img src="image/calibration_window.png" width="50%" />
+</p>
+
+Once all the parameters are green, click the `CALIBRATE` button and wait a few seconds for `SAVE` and `COMMIT` buttons to become available.
+
+Click the `SAVE` button and close the camera calibration node's terminal (closing the calibration window does not work).
+
+The calibration data is now saved in `/tmp/calibrationdata.tar.gz`. Copy it to your home folder with:
+```shell
+cp /tmp/calibrationdata.tar.gz ~/
+```
+
+Extract the calibration data by opening the `calibrationdata.tar.gz` file in your home folder. The calibration data contains all the images for the calibration and the actual calibration file `ost.yaml`.
+
+<p align="center">
+<img src="image/calibration_file.png" width="50%" />
+</p>
+
+Open the calibration file to examine some contents. It contains all the parameters necessary to correct camera distortions. The calibrator will set the `camera_name` parameter to a generic `narrow_stereo` name. Let's change it to `brio_101` like the kit's camera. Otherwise, `v4l2_camera` will warn but still going to apply the calibration. We should rename the calibration file from `ost.yaml` to `brio_101.yaml` to know that it is the calibration file for a Logitech Brio 101 as well.
+
+```yaml
+image_width: 640
+image_height: 480
+camera_name: brio_101 # From narrow_stereo
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [888.54513,   0.     , 349.44456,
+           0.     , 890.80918, 241.37833,
+           0.     ,   0.     ,   1.     ]
+distortion_model: plumb_bob
+... (more below) ...
+```
+
+### Using calibration file
+#### ROS2 run
+To use the calibration file, we can run `v4l2_camera_node` and provide the calibration file with:
+
+```shell
+ros2 run v4l2_camera v4l2_camera_node --ros-args -p camera_info_url:=file://<where your calibration file is saved>
+```
+
+#### ROS2 launch
+We can also provide configuration file when calling `v4l2_camera_node` in launch file.
+
+First let's add the `brio_101.yaml` calibration file to the `image_processing` package or whichever package that is launching `v4l2_camera_node`. Let's add it to a `config` folder. Your package directory should now have a `config` folder with `brio_101.yaml` calibration file inside similar to this structure:
+
+```shell
+$ tree ~/ros2_ws/src/image_processing
+.
+├── config
+│   └── brio_101.yaml
+├── image_processing
+│   ├── cube_detect_node.py
+│   └── __init__.py
+├── launch
+│   └── cube_detect_launch.py
+├── package.xml
+├── resource
+│   └── image_processing
+├── setup.cfg
+├── setup.py
+└── test
+    ├── test_copyright.py
+    ├── test_flake8.py
+    └── test_pep257.py
+
+6 directories, 11 files
+
+```
+
+Like our `launch` folder, we will also need to add `config` folder to our package by adding it to `setup.py`'s `data_files`:
+
+```Python
+data_files=[
+    ('share/ament_index/resource_index/packages',
+        ['resource/' + package_name]),
+    ('share/' + package_name, ['package.xml']),
+    # Include all launch files.
+    (os.path.join('share', package_name, 'launch'), glob(os.path.join('launch', '*launch.[pxy][yma]*'))),
+    # Include all config files.
+    (os.path.join('share', package_name, 'config'), glob(os.path.join('config', '*.[pxy][yma]*'))),
+],
+```
+
+We can then refer to the configuration file in our launch file. First import `os` and `get_package_share_directory` into the launch file (i.e. `cube_detect_launch.py`) with:
+
+```Python
+import os
+from ament_index_python.packages import get_package_share_directory
+```
+
+Then we can get the path to the calibration file and add it to `v4l2_camera_node`:
+
+```Python
+camera_cal_path = os.path.join(
+    get_package_share_directory("image_processing"), "config", "brio_101.yaml"
+)
+v4l2_camera_node = Node(
+    package="v4l2_camera",
+    executable="v4l2_camera_node",
+    parameters=[
+        {
+            "image_size": [640, 480],
+            "camera_info_url": "file://" + camera_cal_path,
+        },
+    ],
+)
+```
+
+## Camera Homography
+As mentioned in class, we can use some transformation to figure out how far away is an object in the picture just from their pixel location. This technique is called [homography](https://en.wikipedia.org/wiki/Homography_%28computer_vision%29). With a well calibrated camera, we can figure out the transformation and get a good estimate of the location of the cube with respect to the robot.
+
+### Data collection
+To get the transformation, we need to collect some points (at least 3, as many as you want for higher accuracy). We will need both the Pi and the computer to get the data.
+
+First, make sure that the camera is fixed to the robot and will not tilt around later because the data we will collect is specific to the camera location and orientation. Don't just tape it! ~~like your lazy MASLAB TA~~. Also make sure the camera is mounted somewhere high and tilted down to look at the floor.
+
+Then place some grid pattern down to help with getting the location in the 3D world. By ROS convention, the robot's front aligns with X axis with Y axis to the left such that Z axis is up.
+
+<p align="center">
+<img src="image/homography_calibration.jpg" width="75%" />
+</p>
+
+Once you are ready to take measurements:
+
+#### On Pi
+1. [Run `v4l2_camera_node` with calibration file](#ros2-run)
+
+#### On your computer
+1. Run `rqt`
+1. Open `Plugins > Visualization > Image View` and select `/image_raw/compressed` topic
+1. Check the box next to `/image_raw/compressed_mouse_left`. This will allow RQT to publish the pixel of the clicked point.
+1. Open `Plugins > Topics > Topics Monitor` and check `/image_raw/compressed_mouse_left` to monitor.
+1. Pick a point in the real world and measure how far away the point is from the robot in x and y. Use meter.
+1. Click the point in `Image View` and get `x,y` values in `Topics Monitor`.
+1. Record the values and repeat as many as you like.
+
+<p align="center">
+<img src="image/homography_rqt.png" width="75%" />
+</p>
+
+### Homography calculation
+
+#### Cube locate node
+Now that we have the data, let's locate the cube! Let's make a cube locate node similar to the cube detect node. Let's call it `cube_locate` with `cube_locate_node.py` in `src/image_processing/image_processing`.
+
+For this node, you can copy and paste your cube detect node and slightly modify it to calculate the actual distance from robot:
+
+1. Add the points we collected from [data collection](#data-collection) as:
+    ```Python
+    # Example data from /image_raw/compressed_mouse_left
+    PTS_IMAGE_PLANE = [[564, 375],
+                       [447, 326],
+                       [332, 289],
+                       [237, 326],
+                       [133, 357],
+                       [266, 394]]
+
+    # Example data from corresponding point in real world
+    PTS_GROUND_PLANE = [[3, -5],
+                        [6, -3],
+                        [9,  0],
+                        [6,  2],
+                        [4,  4],
+                        [2,  1]]
+    ```
+1. In `__init__`, calculate a homography matrix with:
+    ```Python
+    #Initialize data into a homography matrix
+    np_pts_ground = np.array(PTS_GROUND_PLANE)
+    np_pts_ground = np.float32(np_pts_ground[:, np.newaxis, :])
+
+    np_pts_image = np.array(PTS_IMAGE_PLANE)
+    np_pts_image = np.float32(np_pts_image[:, np.newaxis, :])
+
+    self.h, err = cv2.findHomography(np_pts_image, np_pts_ground)
+    ```
+1. Add a helper function to the cube locator node class:
+    ```Python
+    def transformUvToXy(self, u, v):
+        """
+        u and v are pixel coordinates.
+        The top left pixel is the origin, u axis increases to right, and v axis
+        increases down.
+
+        Returns a normal non-np 1x2 matrix of xy displacement vector from the
+        camera to the point on the ground plane.
+        Camera points along positive x axis and y axis increases to the left of
+        the camera.
+
+        Units are in meters.
+        """
+        homogeneous_point = np.array([[u], [v], [1]])
+        xy = np.dot(self.h, homogeneous_point)
+        scaling_factor = 1.0 / xy[2, 0]
+        homogeneous_xy = xy * scaling_factor
+        x = homogeneous_xy[0, 0]
+        y = homogeneous_xy[1, 0]
+        return x, y
+    ```
+1. In `image_callback` function:
+    1. Calculate pixel of the center of the bottom of the cube.
+    1. Use `transformUvToXy` to calculate the world coordinate of the bottom of the cube.
+    1. Use `cv2.circle` to add the center bottom point to the image for debugging.
+    1. Use `cv2.putText` to add text of the world coordinate to the image for debugging.
+
+If everything go well then congratulations! You have calculated location of a cube from an image! If not, feel free to check the code for more references.
+
+<p align="center">
+<img src="image/homography_result.png" width="50%" />
+</p>
+
+
+
