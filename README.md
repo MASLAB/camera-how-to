@@ -441,5 +441,32 @@ If everything go well then congratulations! You have calculated location of a cu
 <img src="image/homography_result.png" width="50%" />
 </p>
 
+## Better Color Segmentation
+To get better color segmentation, we can apply some filter to the image to de-noise the image and blend similar colors together. We can also apply all these filter to the same image before segmentation. Just keep in mind that more filter = more computation and can delay your detection code.
 
+Below is a few useful techniques. More information about them is available on https://docs.opencv.org/
 
+### Smoothing
+Smoothing image is a great way to de-noise, especially with blurring techniques such as `blur` and `medianBlur`. To keep the sharp edges and ignore any weird texture, `bilateralFilter` is particularly useful as well.
+
+To see how different smoothing techniques affect the image, checkout: https://docs.opencv.org/4.x/d4/d13/tutorial_py_filtering.html 
+
+### Quantization
+In addition to smoothing the image, color quantization is another useful technique to reduce the color space and make similar colors more similar. However, too much quantization can merge too many colors together, merging different color region.
+
+For colorization, you can calculate directly with:
+
+```Python
+div = 16 # Change div to a power of 2. Higher means lower number of distinct color
+frame = frame // div * div + div // 2
+```
+
+You can also read more and check out better quantization techniques here: https://docs.opencv.org/4.x/d1/d5c/tutorial_py_kmeans_opencv.html#autotoc_md1448
+
+### Example
+Here is an example with `blur`, `medianBlur`, `bilateralFilter`, and quantization applied:
+
+<p float="left" align="center">
+  <img src="image/before_filter.png" width="40%" />
+  <img src="image/after_filter.png" width="40%" />
+</p>
