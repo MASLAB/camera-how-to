@@ -454,14 +454,14 @@ To see how different smoothing techniques affect the image, checkout: https://do
 ### Quantization
 In addition to smoothing the image, color quantization is another useful technique to reduce the color space and make similar colors more similar. However, too much quantization can merge too many colors together, merging different color region.
 
-For colorization, you can calculate directly with:
+For quantization, you can do a naive approximation with:
 
 ```Python
 div = 16 # Change div to a power of 2. Higher means lower number of distinct color
 frame = frame // div * div + div // 2
 ```
 
-You can also read more and check out better quantization techniques here: https://docs.opencv.org/4.x/d1/d5c/tutorial_py_kmeans_opencv.html#autotoc_md1448
+You can also read more and check out a better quantization technique (k-means clustering) here: https://docs.opencv.org/4.x/d1/d5c/tutorial_py_kmeans_opencv.html#autotoc_md1448
 
 ### Example
 Here is an example with `blur`, `medianBlur`, `bilateralFilter`, and quantization applied:
